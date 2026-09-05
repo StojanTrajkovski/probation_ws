@@ -30,6 +30,7 @@ setup(
             'minimal_subscriber = probation_bringup.minimal_subscriber:main',
             'service_member_function = probation_bringup.service_member_function:main',
             'client_member_function = probation_bringup.client_member_function:main',
+            'gate_navigator = probation_bringup.gate_navigator:main',
         ],
     },
 )
