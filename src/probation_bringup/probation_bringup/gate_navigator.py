@@ -24,6 +24,8 @@ class GateNavigator(Node):
         self.rel_alt = 0
         
         self.camera_sub = self.create_subscriptions(BoundingBoxArray, "main_camera/detection/bounding_boxes", self.camera_listener_callback, 10)
+        self.bounding_boxes = []
+        self.gate_count = 0
         
     def send_request(self):
         self.req.base_mode = 0
@@ -40,6 +42,7 @@ class GateNavigator(Node):
         vel_msg.angular.z = 0.5
         
         
+        
         self.vel_pub.publish(vel_msg)
         self.get_logger().info(f"Publishing velocity command: Up/Down = {vel_msg.linear.z}")
         
@@ -49,6 +52,13 @@ class GateNavigator(Node):
         
     def camera_listener_callback(self, array):
         self.bounding_boxes = array.bounding_boxes
+        
+        # Because camera is unreliable, we want to make sure we have detected
+        # the gate multiple times before we can confirm it is in fact the gate
+        for i in range(len(self.bounding_boxes)):
+            if self.bounding_boxes[i].label_id == 3:
+                if self.bounding_boxes[i].conf == 1.0:
+                    self.gate_count += 1
              
         
 def main():
