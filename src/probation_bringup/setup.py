@@ -31,6 +31,7 @@ setup(
             'service_member_function = probation_bringup.service_member_function:main',
             'client_member_function = probation_bringup.client_member_function:main',
             'gate_navigator = probation_bringup.gate_navigator:main',
+            'gate_navigator_v1 = probation.bringup.gate_navigator_v1:main',
         ],
     },
 )
