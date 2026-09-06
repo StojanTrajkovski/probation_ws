@@ -5,6 +5,7 @@ from rclpy.node import Node
 from mavros_msgs.srv import SetMode
 from geometry_msgs.msg import Twist
 from std_msgs.msg import Float64
+from vision_msgs.msg import BoundingBoxArray
 
 class GateNavigator(Node):
 
@@ -22,6 +23,8 @@ class GateNavigator(Node):
         self.alt_sub = self.create_subscription(Float64, "mavros/global_position/rel_alt", self.alt_listener_callback, 10)
         self.rel_alt = 0
         
+        self.camera_sub = self.create_subscriptions(BoundingBoxArray, "main_camera/detection/bounding_boxes", self.camera_listener_callback, 10)
+        
     def send_request(self):
         self.req.base_mode = 0
         self.req.custom_mode = "GUIDED"
@@ -30,7 +33,12 @@ class GateNavigator(Node):
     def timer_callback(self):
         vel_msg = Twist()
         
+        # Descend to depth of 1.8m
         vel_msg.linear.z = -1.0 * (self.rel_alt + 1.8)
+        
+        # Spin while descending to detect gate
+        vel_msg.angular.z = 0.5
+        
         
         self.vel_pub.publish(vel_msg)
         self.get_logger().info(f"Publishing velocity command: Up/Down = {vel_msg.linear.z}")
@@ -38,6 +46,9 @@ class GateNavigator(Node):
     def alt_listener_callback(self, alt):
         self.rel_alt = alt.data
         self.get_logger().info(f"REL_ALT = {self.rel_alt}")
+        
+    def camera_listener_callback(self, array):
+        self.bounding_boxes = array.bounding_boxes
              
         
 def main():
