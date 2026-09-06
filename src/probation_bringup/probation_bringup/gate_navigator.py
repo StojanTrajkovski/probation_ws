@@ -31,6 +31,9 @@ class GateNavigator(Node):
         self.gate_w = 0
         self.gate_h = 0
         
+        self.heading_sub = self.create_subscription(Float64, "mavros/global_position/compass_hdg", self.heading_listener_callback, 10)
+        self.heading = 0
+        
     def send_request(self):
         self.req.base_mode = 0
         self.req.custom_mode = "GUIDED"
@@ -69,6 +72,9 @@ class GateNavigator(Node):
                     self.gate_y = self.bounding_boxes[i].y
                     self.gate_w = self.bounding_boxes[i].w
                     self.gate_h = self.bounding_boxes[i].h
+                    
+    def heading_listener_callback(self, heading):
+        self.heading = heading.data
              
         
 def main():
