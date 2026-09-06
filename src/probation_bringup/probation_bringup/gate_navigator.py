@@ -38,10 +38,11 @@ class GateNavigator(Node):
         # Descend to depth of 1.8m
         vel_msg.linear.z = -1.0 * (self.rel_alt + 1.8)
         
-        # Spin while descending to detect gate
-        vel_msg.angular.z = 0.5
-        
-        
+        # Spin while descending to detect gate, proportional to gate_count
+        if self.gate_count < 5:
+            vel_msg.angular.z = 0.1 * (5 - self.gate_count)
+        else:
+            pass  
         
         self.vel_pub.publish(vel_msg)
         self.get_logger().info(f"Publishing velocity command: Up/Down = {vel_msg.linear.z}")
