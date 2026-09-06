@@ -23,9 +23,13 @@ class GateNavigator(Node):
         self.alt_sub = self.create_subscription(Float64, "mavros/global_position/rel_alt", self.alt_listener_callback, 10)
         self.rel_alt = 0
         
-        self.camera_sub = self.create_subscriptions(BoundingBoxArray, "main_camera/detection/bounding_boxes", self.camera_listener_callback, 10)
+        self.camera_sub = self.create_subscription(BoundingBoxArray, "main_camera/detection/bounding_boxes", self.camera_listener_callback, 10)
         self.bounding_boxes = []
         self.gate_count = 0
+        self.gate_x = 0
+        self.gate_y = 0
+        self.gate_w = 0
+        self.gate_h = 0
         
     def send_request(self):
         self.req.base_mode = 0
@@ -42,7 +46,8 @@ class GateNavigator(Node):
         if self.gate_count < 5:
             vel_msg.angular.z = 0.1 * (5 - self.gate_count)
         else:
-            pass  
+            # Align to middle of gate
+            vel_msg.angular.z = 0.2 * (0.5 - self.gate_x)
         
         self.vel_pub.publish(vel_msg)
         self.get_logger().info(f"Publishing velocity command: Up/Down = {vel_msg.linear.z}")
@@ -60,6 +65,10 @@ class GateNavigator(Node):
             if self.bounding_boxes[i].label_id == 3:
                 if self.bounding_boxes[i].conf == 1.0:
                     self.gate_count += 1
+                    self.gate_x = self.bounding_boxes[i].x
+                    self.gate_y = self.bounding_boxes[i].y
+                    self.gate_w = self.bounding_boxes[i].w
+                    self.gate_h = self.bounding_boxes[i].h
              
         
 def main():
