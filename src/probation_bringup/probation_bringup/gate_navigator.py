@@ -15,6 +15,9 @@ class GateNavigator(Node):
             self.get_logger().info('set_mode service not available, waiting again...')
         self.req = SetMode.Request()
         
+        self.vel_pub = self.create_publisher(Twist, "mavros/setpoint_velocity/cmd_vel_unstamped", 10)
+        self.create_timer(0.05, self.timer_callback)
+        
         # It seems that a relative alt of about -1.8 is roughly the middle of the gate
         self.alt_sub = self.create_subscription(Float64, "mavros/global_position/rel_alt", self.alt_listener_callback, 10)
         self.rel_alt = 0
@@ -23,9 +26,18 @@ class GateNavigator(Node):
         self.req.base_mode = 0
         self.req.custom_mode = "GUIDED"
         return self.set_mode_client.call_async(self.req)
+    
+    def timer_callback(self):
+        vel_msg = Twist()
+        
+        vel_msg.linear.z = -1.0 * (self.rel_alt + 1.8)
+        
+        self.vel_pub.publish(vel_msg)
+        self.get_logger().info(f"Publishing velocity command: Up/Down = {vel_msg.linear.z}")
         
     def alt_listener_callback(self, alt):
         self.rel_alt = alt.data
+        self.get_logger().info(f"REL_ALT = {self.rel_alt}")
              
         
 def main():
