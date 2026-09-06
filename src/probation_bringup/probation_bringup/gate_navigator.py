@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 import rclpy
 from rclpy.node import Node
+from rclpy.qos import QoSProfile, DurabilityPolicy, ReliabilityPolicy, HistoryPolicy
 
 from mavros_msgs.srv import SetMode
 from geometry_msgs.msg import Twist
@@ -16,7 +17,13 @@ class GateNavigator(Node):
             self.get_logger().info('set_mode service not available, waiting again...')
         self.req = SetMode.Request()
         
-        self.vel_pub = self.create_publisher(Twist, "mavros/setpoint_velocity/cmd_vel_unstamped", 10)
+        qos_profile = QoSProfile(
+            reliability=ReliabilityPolicy.RELIABLE,
+            durability=DurabilityPolicy.VOLATILE,
+            history=HistoryPolicy.KEEP_LAST,
+            depth=10
+        )
+        self.vel_pub = self.create_publisher(Twist, "mavros/setpoint_velocity/cmd_vel_unstamped", qos_profile)
         self.create_timer(0.05, self.timer_callback)
         
         # It seems that a relative alt of about -1.8 is roughly the middle of the gate
@@ -30,6 +37,7 @@ class GateNavigator(Node):
         self.gate_y = 0
         self.gate_w = 0
         self.gate_h = 0
+        self.prev_w = 0
         
         self.heading_sub = self.create_subscription(Float64, "mavros/global_position/compass_hdg", self.heading_listener_callback, 10)
         self.heading = 0
@@ -49,11 +57,34 @@ class GateNavigator(Node):
         if self.gate_count < 5:
             vel_msg.angular.z = 0.1 * (5 - self.gate_count)
         else:
-            # Align to middle of gate
-            vel_msg.angular.z = 0.2 * (0.5 - self.gate_x)
-        
+            if self.gate_w > self.prev_w - 0.1:
+                # Align to middle of gate
+                vel_msg.angular.z = 0.4 * (0.5 - self.gate_x)
+                
+                if 90 < self.heading < 270:
+                    vel_msg.linear.y = 0.4 * (1 - self.heading/180)
+                else:
+                    vel_msg.linear.y = -0.4 * (1 - self.heading/180)
+                
+                # Track toward gate, faster if more width available
+                vel_msg.linear.x = 1.0 * self.gate_w
+                
+                # Keep track of width
+                self.prev_w = self.gate_w
+                
+            else: # Too close for camera to see whole gate
+                if 90 < self.heading < 270:
+                    vel_msg.linear.y = 0.4 * (1 - self.heading/180)
+                    vel_msg.angular.z = 0.4 * (1 - self.heading/180)
+                else:
+                    vel_msg.linear.y = -0.4 * (1 - self.heading/180)
+                    vel_msg.linear.z = -0.4 * (1 - self.heading/180)
+                
+                # Commit to motion
+                vel_msg.linear.x = 1.0
+                    
         self.vel_pub.publish(vel_msg)
-        self.get_logger().info(f"Publishing velocity command: Up/Down = {vel_msg.linear.z}")
+        self.get_logger().info(f"Up/Down Vel = {vel_msg.linear.z}, Angular Vel = {vel_msg.angular.z}, Side Vel = {vel_msg.linear.y}")
         
     def alt_listener_callback(self, alt):
         self.rel_alt = alt.data
@@ -75,6 +106,7 @@ class GateNavigator(Node):
                     
     def heading_listener_callback(self, heading):
         self.heading = heading.data
+        self.get_logger().info(f"HEADING = {self.heading}")
              
         
 def main():
