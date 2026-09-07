@@ -78,11 +78,6 @@ class GateNavigator(Node):
                 self.avoidance_state = 0  # Resume normal gate-seeking
                 self.gate_count = 0
                 self.gate_in_view = False
-                self.gate_found = False
-                self.straight = False
-                self.aligned = False
-                self.gate_found_ticks = 0
-                self.aligned_ticks = 0
                 self.get_logger().info("OBSTACLE AVOIDED")
             self.vel_pub.publish(vel_msg)
             return
@@ -194,6 +189,10 @@ class GateNavigator(Node):
 
         self.obstacle_in_view = False
         self.obstacle_size = 0.0
+        
+        gate_miss_count = 0
+        GATE_MISS_TOLERANCE = 3  # allow a few bounding_box misses before declaring gate lost
+        gate_detected_this_tick = False
 
         # Because camera is unreliable, we want to make sure we have detected
         # the gate multiple times before we can confirm it is in fact the gate
@@ -203,14 +202,22 @@ class GateNavigator(Node):
                     self.gate_count += 1
                     self.gate_x = self.bounding_boxes[i].x
                     self.gate_w = self.bounding_boxes[i].w
-                    if self.gate_w > 0.15:
-                        self.gate_in_view = True # We only want to see the whole gate, not just a supporting pole
+                    gate_detected_this_tick = True
 
             elif self.bounding_boxes[i].label_id == 4:
                 if self.bounding_boxes[i].conf >= 0.7:
                     self.obstacle_in_view = True
                     self.obstacle_size = self.bounding_boxes[i].w
                     self.obstacle_x = self.bounding_boxes[i].x
+                    
+        if gate_detected_this_tick:
+            gate_miss_count = 0
+            if self.gate_w > 0.15:
+                self.gate_in_view = True # We only want to see the whole gate, not just a supporting pole
+        else:
+            gate_miss_count += 1
+            if gate_miss_count > GATE_MISS_TOLERANCE:
+                self.gate_in_view = False
 
     def heading_listener_callback(self, heading):
         self.heading = heading.data
